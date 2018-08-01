@@ -7,6 +7,7 @@ class Context_Encoder(nn.Module):
 
     def __init__(self, conv_activate=nn.ELU, conv_trans_activate=nn.ELU, 
                  BN=True):
+        super(Context_Encoder, self).__init__()        
         self.encoder = nn.Sequential(
             Conv(3, 64, activate=conv_activate, BN=True),
             Conv(64, 64, activate=conv_activate, BN=True),
@@ -16,7 +17,7 @@ class Context_Encoder(nn.Module):
             Conv(512, 4000, stride=1, padding=0, activate=conv_activate, 
                     BN=True)
         )
-        self.decoder = (
+        self.decoder = nn.Sequential(
             Conv_Trans(4000, 512, stride=1, padding=0, 
                        activate=conv_trans_activate, BN=True),
             Conv_Trans(512, 256, activate=conv_trans_activate, BN=True),
@@ -36,6 +37,7 @@ class Context_Encoder(nn.Module):
 class Adversarial_Discriminator(nn.Module):
 
     def __init__(self, activate=nn.ELU, BN=True):
+        super(Adversarial_Discriminator, self).__init__()
         self.adversarial = nn.Sequential(
             Conv(3, 64, activate=activate, BN=BN),
             Conv(64, 128, activate=activate, BN=BN),
@@ -45,9 +47,9 @@ class Adversarial_Discriminator(nn.Module):
         self.fully_connected = nn.Linear(4*4*512, 1)
 
     def forward(self, inputs):
-        temp = self.adversarial(inputs)
-        result = self.fully_connected(temp)
-
+        x = self.adversarial(inputs)
+        x = x.view(-1, 4*4*512)        
+        result = self.fully_connected(x)
         return result
 
 
@@ -55,15 +57,16 @@ class Conv(nn.Module):
 
     def __init__(self, in_channels, out_channels, kernel_size=4, stride=2, 
                  padding=1, activate=nn.ELU, BN=True):
+        super(Conv, self).__init__()
         if (BN==True):
             self.conv = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels, kernel_size, stride),
+                nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding),
                 nn.BatchNorm2d(out_channels),
                 activate(inplace=True)
             )
         elif (BN==False):
             self.conv = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels, kernel_size, stride),
+                nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding),
                 activate(inplace=True)
             )
 
@@ -75,17 +78,18 @@ class Conv_Trans(nn.Module):
     
     def __init__(self, in_channels, out_channels, kernel_size=4, stride=2, 
                  padding=1, activate=nn.ELU, BN=True):
+        super(Conv_Trans, self).__init__()
         if (BN==True):
             self.conv_trans = nn.Sequential(
                 nn.ConvTranspose2d(in_channels, out_channels, kernel_size,
-                                   stride),
+                                   stride=stride, padding=padding),
                 nn.BatchNorm2d(out_channels),
                 activate(inplace=True)
             )
         elif (BN==False):
             self.conv_trans = nn.Sequential(
                 nn.ConvTranspose2d(in_channels, out_channels, kernel_size,
-                                   stride),
+                                   stride=stride, padding=padding),
                 activate(inplace=True)
             )
 
