@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 class Context_Encoder(nn.Module):
 
-    def __init__(self, conv_activate=nn.ELU, conv_trans_activate=nn.ELU, 
+    def __init__(self, conv_activate=nn.LeakyReLU, conv_trans_activate=nn.ReLU, 
                  BN=True):
         super(Context_Encoder, self).__init__()        
         self.encoder = nn.Sequential(
@@ -36,7 +36,7 @@ class Context_Encoder(nn.Module):
 
 class Adversarial_Discriminator(nn.Module):
 
-    def __init__(self, activate=nn.ELU, BN=True):
+    def __init__(self, activate=nn.ReLU, BN=True):
         super(Adversarial_Discriminator, self).__init__()
         self.adversarial = nn.Sequential(
             Conv(3, 64, activate=activate, BN=BN),
@@ -56,7 +56,7 @@ class Adversarial_Discriminator(nn.Module):
 class Conv(nn.Module):
 
     def __init__(self, in_channels, out_channels, kernel_size=4, stride=2, 
-                 padding=1, activate=nn.ELU, BN=True):
+                 padding=1, activate, BN=True):
         super(Conv, self).__init__()
         if (BN==True):
             self.conv = nn.Sequential(
@@ -77,7 +77,7 @@ class Conv(nn.Module):
 class Conv_Trans(nn.Module):
     
     def __init__(self, in_channels, out_channels, kernel_size=4, stride=2, 
-                 padding=1, activate=nn.ELU, BN=True):
+                 padding=1, activate, BN=True):
         super(Conv_Trans, self).__init__()
         if (BN==True):
             self.conv_trans = nn.Sequential(
