@@ -9,38 +9,81 @@ import pandas as pd
 
 
 
-def train(model, load, loss, trainset_path, testset_path, dataset_path, 
-          model_path, result_path, pretrained_model_path, save_path, 
-          n_iter=10000, lr=0.0001, batch_size=500, lambda_recon=0.999, 
-          overlap_size=7, hiding_size=64, device=3, check_path=None):
+# No overlap
+def joint_loss_no_overlap(input_img, hole_size=64, lambda_recon=0.999):
+    mask_recon = np.ones(shape=(hole_size, hole_size, 3))
+    mask_all = np.pad(mask_recon, 128-hole_size, "constant")
+    mask_context = 1-mask_all
+    input_img_context = input_img*mask_context
+    input_img_hole = input_img[(128-hole_size)//2:(128+hole_size)//2, 
+                               (128-hole_size)//2:(128+hole_size)//2]
 
+    context = Context_Encoder()
+    recon_hole = context(input_img_context)
+
+    adversarial = Adversarial_Discriminator()
+    adversarial_real = adversarial(input_img_hole)
+    adversarial_recon = adversarial(recon_hole)
+
+    recon_loss_fun = nn.MSELoss()
+    recon_loss = recon_loss_fun(recon_hole, input_img_hole)
+
+    adver_loss_fun = nn.BCEWithLogitsLoss()
+    adver_loss = adver_loss_fun(adversarial_recon, adversarial_real)
+
+    joint_loss = lambda_recon*recon_loss + (1-lambda_recon)*adver_loss
+
+    return joint_loss
+
+
+def train():
     if checkPath is not None:
         state = torch.load(checkPath)
         model.load_state_dict(state['state_dict'])
 
-    if not os.path.exists(model_path):
-        os.makedirs( model_path )
+    mask_recon = np.ones(shape=(hole_size, hole_size))
+    mask_all = np.pad(mask_recon, (128-hole_size)//2, "constant")
+    mask_all = np.expand_dims(mask_all, 2)
+    mask_all = np.stack([mask_all*3], 2)
+    mask_all = np.expand_dims(mask_all, 0)
+    mask_all = np.vstack([mask_all*batch_size])
+    mask_context = 1-mask_all
 
-    if not os.path.exists(result_path):
-        os.makedirs( result_path )
+    context = Context_Encoder()
+    adversarial = Adversarial_Discriminator()
 
-    if not os.path.exists( trainset_path ) or not os.path.exists( testset_path ):
-        imagenet_images = []
-        for dir, _, _, in os.walk(dataset_path):
-            imagenet_images.extend( glob( os.path.join(dir, '*.jpg')))
+    optimizer_context = torch.optim.Adam(params=context.parameters(), 
+                                         lr=lr_context)
+    optimizer_adver = torch.optim.Adam(params=adversarial.parameters(),
+                                       lr=lr_adver)
 
-        imagenet_images = np.hstack(imagenet_images)
+    recon_loss_fun = nn.MSELoss()
+    adver_loss_fun = nn.BCEWithLogitsLoss()
 
-        trainset = pd.DataFrame({'image_path':imagenet_images[:int(len(imagenet_images)*0.9)]})
-        testset = pd.DataFrame({'image_path':imagenet_images[int(len(imagenet_images)*0.9):]})
+    label_real = torch.ones(batch_size)
+    label_fake = torch.zeros(batch_size)
 
-        trainset.to_pickle( trainset_path )
-        testset.to_pickle( testset_path )
-    else:
-        trainset = pd.read_pickle( trainset_path )
-        testset = pd.read_pickle( testset_path )
+    if device is not None:
+        recon_loss_fun = recon_loss_fun.cuda(device)
+        adver_loss_fun = adver_loss_fun.cuda(device)
 
-    testset.index = range(len(testset))
-    testset = testset.ix[np.random.permutation(len(testset))]
+    for each_epoch in range(n_epoch):
+        # input_img = ?
 
+        input_img_context = input_img*mask_context
+        input_img_context = torch.from_numpy(input_img_context)
+        input_img_hole = input_img[:, (128-hole_size)//2:(128+hole_size)//2, 
+                               (128-hole_size)//2:(128+hole_size)//2, :]
+        input_img_hole = torch.from_numpy(input_img_hole)
+
+        if device is not None:
+            input_img_context = input_img_context.cuda(device)
+            input_img_hole = input_img_hole.cuda(device)
+        
+        recon_hole = context(input_img_context)
+
+        adversarial_real = adversarial(input_img_hole)
+        adversarial_recon = adversarial(recon_hole)
+
+        recon_loss = recon_loss_fun(recon_hole, input_img_hole)
 
