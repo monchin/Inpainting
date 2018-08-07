@@ -3,7 +3,10 @@ import numpy as np
 from timeit import default_timer
 from dataset.general.serialize import data2pa, pa2np
 from BASIC_LIST.basic import groupby
-import os, re
+import os
+import cv2
+
+
 
 class train_loader:
 	def __init__(self, folder, minibatch=32):
@@ -32,3 +35,8 @@ class train_loader:
 		groups = groupby(indices, self.minibatch, key='mini')
 		for index, group in enumerate(groups):
 			yield self.X[group]
+
+
+
+def resize_128(img):
+	return cv2.resize(img, (128, 128), interpolation=cv2.INTER_AREA)

@@ -9,20 +9,20 @@ class Context_Encoder(nn.Module):
                  BN=True):
         super(Context_Encoder, self).__init__()        
         self.encoder = nn.Sequential(
-            Conv(3, 64, activate=conv_activate, BN=True),
-            Conv(64, 64, activate=conv_activate, BN=True),
-            Conv(64, 128, activate=conv_activate, BN=True),
-            Conv(128, 256, activate=conv_activate, BN=True),
-            Conv(256, 512, activate=conv_activate, BN=True),
+            Conv(3, 64, activate=conv_activate, BN=BN),
+            Conv(64, 64, activate=conv_activate, BN=BN),
+            Conv(64, 128, activate=conv_activate, BN=BN),
+            Conv(128, 256, activate=conv_activate, BN=BN),
+            Conv(256, 512, activate=conv_activate, BN=BN),
             Conv(512, 4000, stride=1, padding=0, activate=conv_activate, 
-                    BN=True)
+                    BN=BN)
         )
         self.decoder = nn.Sequential(
             Conv_Trans(4000, 512, stride=1, padding=0, 
-                       activate=conv_trans_activate, BN=True),
-            Conv_Trans(512, 256, activate=conv_trans_activate, BN=True),
-            Conv_Trans(256, 128, activate=conv_trans_activate, BN=True),
-            Conv_Trans(128, 64, activate=conv_trans_activate, BN=True),
+                       activate=conv_trans_activate, BN=BN),
+            Conv_Trans(512, 256, activate=conv_trans_activate, BN=BN),
+            Conv_Trans(256, 128, activate=conv_trans_activate, BN=BN),
+            Conv_Trans(128, 64, activate=conv_trans_activate, BN=BN),
             nn.ConvTranspose2d(64, 3, 4, stride=2, padding=1)
         )
 
@@ -55,18 +55,20 @@ class Adversarial_Discriminator(nn.Module):
 
 class Conv(nn.Module):
 
-    def __init__(self, in_channels, out_channels, kernel_size=4, stride=2, 
-                 padding=1, activate, BN=True):
+    def __init__(self, in_channels, out_channels, activate, kernel_size=4, 
+                 stride=2, padding=1, BN=True):
         super(Conv, self).__init__()
         if (BN==True):
             self.conv = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding),
+                nn.Conv2d(in_channels, out_channels, kernel_size, 
+                          stride=stride, padding=padding),
                 nn.BatchNorm2d(out_channels),
                 activate(inplace=True)
             )
         elif (BN==False):
             self.conv = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding),
+                nn.Conv2d(in_channels, out_channels, kernel_size, 
+                          stride=stride, padding=padding),
                 activate(inplace=True)
             )
 
@@ -76,8 +78,8 @@ class Conv(nn.Module):
 
 class Conv_Trans(nn.Module):
     
-    def __init__(self, in_channels, out_channels, kernel_size=4, stride=2, 
-                 padding=1, activate, BN=True):
+    def __init__(self, in_channels, out_channels, activate, kernel_size=4, 
+                 stride=2, padding=1, BN=True):
         super(Conv_Trans, self).__init__()
         if (BN==True):
             self.conv_trans = nn.Sequential(
