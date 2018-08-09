@@ -33,10 +33,15 @@ class train_loader:
 	def get(self):
 		indices = np.random.permutation(len(self.X)).tolist()
 		groups = groupby(indices, self.minibatch, key='mini')
-		for index, group in enumerate(groups):
+		for group in groups:
 			yield self.X[group]
 
 
 
-def resize_128(img):
-	return cv2.resize(img, (128, 128), interpolation=cv2.INTER_AREA)
+def resize_128(img, fig_size=(128, 128)):
+	'''
+	@img should be a numpy ndarray with shape (H, W, C)
+	@fig_size should be a tuple (W, H), but as we need square image, 
+	 it doen't matter.
+	'''
+	return cv2.resize(img, fig_size, interpolation=cv2.INTER_AREA)

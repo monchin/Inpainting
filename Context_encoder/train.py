@@ -10,8 +10,8 @@ import os
 
 
 def train(input_path, save_path, hole_size=64, batch_size=32, 
-          lr_context=0.001, lr_adver=0.0001, lambda_recon=0.999, 
-          n_epoch=1000, device=2, check_path=None):
+          lr_g=0.001, lr_d=0.0001, lambda_recon=0.999, 
+          n_epoch=1000, device=1, check_path=None):
     
     context = Context_Encoder()
     adversarial = Adversarial_Discriminator()
@@ -29,7 +29,6 @@ def train(input_path, save_path, hole_size=64, batch_size=32,
     mask_all = np.pad(mask_recon, (128-hole_size)//2, "constant")
     mask_all = np.expand_dims(mask_all, 0)
     mask_all = np.concatenate([mask_all]*3, 0)
-    print(mask_all.shape)
     mask_all = np.expand_dims(mask_all, 0)
     mask_all = np.vstack([mask_all]*batch_size)
     mask_context = 1-mask_all
@@ -37,10 +36,10 @@ def train(input_path, save_path, hole_size=64, batch_size=32,
     print(mask_context.shape)
 
 
-    optimizer_context = torch.optim.Adam(params=context.parameters(), 
-                                         lr=lr_context)
-    optimizer_adver = torch.optim.Adam(params=adversarial.parameters(),
-                                       lr=lr_adver)
+    optimizer_g = torch.optim.Adam(params=context.parameters(), 
+                                         lr=lr_g)
+    optimizer_d = torch.optim.Adam(params=adversarial.parameters(),
+                                       lr=lr_d)
 
     recon_loss_fun = nn.MSELoss()
     adver_loss_fun = nn.BCEWithLogitsLoss()
@@ -63,8 +62,9 @@ def train(input_path, save_path, hole_size=64, batch_size=32,
         # input_img = torch.randint(0, 255, size=(batch_size, 3, 128, 128),
         #                           dtype=torch.float32)
               
-        for input_img in loader.get():
+        for idx, input_img in enumerate(loader.get()):
             input_img = torch.from_numpy(input_img)
+            input_img = np.transpose(input_img, [0, 3, 1, 2])
 
             if device is not None:
                 input_img = input_img.cuda(device)
@@ -80,18 +80,28 @@ def train(input_path, save_path, hole_size=64, batch_size=32,
                 
             input_img_hole = input_img[:, :, (128-hole_size)//2:(128+hole_size)//2, 
                                     (128-hole_size)//2:(128+hole_size)//2]
-
-            optimizer_context.zero_grad()
-
             recon_hole = context(input_img_context)
-            recon_loss = recon_loss_fun(recon_hole, input_img_hole)
 
-            recon_loss_lambda = lambda_recon*recon_loss
-            #recon_loss_lambda.backward()
-            #optimizer_context.step()
+            if idx%5==0:
+                optimizer_g.zero_grad()
+
+                recon_loss = recon_loss_fun(recon_hole, input_img_hole)
+
+                adversarial_recon = adversarial(recon_hole)
+
+                if N==batch_size:
+                    adver_loss = adver_loss_fun(adversarial_recon, label_real)
+                else:
+                    label_real_temp = label_real[:N]
+                    adver_loss = adver_loss_fun(adversarial_recon, label_real_temp)
+
+                joint_loss = lambda_recon*recon_loss+(1-lambda_recon)*adver_loss
+                joint_loss.backward()
+                
+                optimizer_g.step()
 
 
-            optimizer_adver.zero_grad()
+            optimizer_d.zero_grad()
 
             adversarial_real = adversarial(input_img_hole)
             adversarial_recon = adversarial(recon_hole)
@@ -105,16 +115,10 @@ def train(input_path, save_path, hole_size=64, batch_size=32,
                 adver_real_loss = adver_loss_fun(adversarial_real, label_real_temp)
                 adver_recon_loss = adver_loss_fun(adversarial_recon.detach(), label_fake_temp)
 
-            adver_loss = adver_real_loss+adver_recon_loss
+            d_loss = adver_real_loss+adver_recon_loss
+            d_loss.backward()
 
-            adver_loss_lambda = (1-lambda_recon)*adver_loss
-            #adver_loss_lambda.backward()
-
-            joint_loss = recon_loss_lambda+adver_loss_lambda
-            joint_loss.backward()
-            
-            optimizer_context.step()
-            optimizer_adver.step()
+            optimizer_d.step()
 
             
         if each_epoch%10==9:
@@ -123,15 +127,16 @@ def train(input_path, save_path, hole_size=64, batch_size=32,
                 'epoch': each_epoch,
                 'state_dict_c': context.state_dict(),
                 'state_dict_a': adversarial.state_dict(),
-                'optimizer_c': optimizer_context.state_dict(),
-                'optimizer_a': optimizer_adver.state_dict(),
-                'joint_loss': joint_loss
+                'optimizer_g': optimizer_g.state_dict(),
+                'optimizer_d': optimizer_d.state_dict(),
+                'joint_loss': joint_loss,
+                'd_loss': d_loss
             }
             torch.save(check_point,
                 os.path.join(save_path, str(each_epoch).zfill(6) + '.pth.tar'))
             
-        log = "epoch: {}, joint loss: {}, time: {}".format(
-                    each_epoch, joint_loss, default_timer()-start
+        log = "epoch: {}, joint loss: {}, discriminator loss: {}, time: {}".format(
+                    each_epoch, joint_loss, d_loss, default_timer()-start
             )
         print(log)
 
