@@ -24,7 +24,7 @@ class train_loader:
 				print(npy.shape)
 				X.append(npy)
 
-		self.X = np.concatenate(X).astype(np.float32)
+		self.X = np.concatenate(X).astype(np.float32)[:96000]
 
 		print('loading time: {}, final X shape: {}'.format(
 			default_timer()-end, self.X.shape))

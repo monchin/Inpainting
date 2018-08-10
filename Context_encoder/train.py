@@ -82,43 +82,44 @@ def train(input_path, save_path, hole_size=64, batch_size=32,
                                     (128-hole_size)//2:(128+hole_size)//2]
             recon_hole = context(input_img_context)
 
-            if idx%5==0:
-                optimizer_g.zero_grad()
+            #generator
+            optimizer_g.zero_grad()
 
-                recon_loss = recon_loss_fun(recon_hole, input_img_hole)
+            recon_loss = recon_loss_fun(recon_hole, input_img_hole)
 
-                adversarial_recon = adversarial(recon_hole)
-
-                if N==batch_size:
-                    adver_loss = adver_loss_fun(adversarial_recon, label_real)
-                else:
-                    label_real_temp = label_real[:N]
-                    adver_loss = adver_loss_fun(adversarial_recon, label_real_temp)
-
-                joint_loss = lambda_recon*recon_loss+(1-lambda_recon)*adver_loss
-                joint_loss.backward()
-                
-                optimizer_g.step()
-
-
-            optimizer_d.zero_grad()
-
-            adversarial_real = adversarial(input_img_hole)
             adversarial_recon = adversarial(recon_hole)
 
             if N==batch_size:
-                adver_real_loss = adver_loss_fun(adversarial_real, label_real)
-                adver_recon_loss = adver_loss_fun(adversarial_recon.detach(), label_fake)
+                adver_loss = adver_loss_fun(adversarial_recon, label_real)
             else:
                 label_real_temp = label_real[:N]
-                label_fake_temp = label_fake[:N]
-                adver_real_loss = adver_loss_fun(adversarial_real, label_real_temp)
-                adver_recon_loss = adver_loss_fun(adversarial_recon.detach(), label_fake_temp)
+                adver_loss = adver_loss_fun(adversarial_recon, label_real_temp)
 
-            d_loss = adver_real_loss+adver_recon_loss
-            d_loss.backward()
+            joint_loss = lambda_recon*recon_loss+(1-lambda_recon)*adver_loss
+            joint_loss.backward()
+            
+            optimizer_g.step()
 
-            optimizer_d.step()
+            #discriminator
+            for i in range(5):
+                optimizer_d.zero_grad()
+
+                adversarial_real = adversarial(input_img_hole)
+                adversarial_recon = adversarial(recon_hole)
+
+                if N==batch_size:
+                    adver_real_loss = adver_loss_fun(adversarial_real, label_real)
+                    adver_recon_loss = adver_loss_fun(adversarial_recon.detach(), label_fake)
+                else:
+                    label_real_temp = label_real[:N]
+                    label_fake_temp = label_fake[:N]
+                    adver_real_loss = adver_loss_fun(adversarial_real, label_real_temp)
+                    adver_recon_loss = adver_loss_fun(adversarial_recon.detach(), label_fake_temp)
+
+                d_loss = adver_real_loss+adver_recon_loss
+                d_loss.backward()
+
+                optimizer_d.step()
 
             
         if each_epoch%10==9:
